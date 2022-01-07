@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"sync"
 	"time"
@@ -49,6 +50,14 @@ func main() {
 
 		}
 	}
+
+	// Lets also try a simple HTTP server
+
+	http.HandleFunc("/hello", helloHttpServer)
+	http.HandleFunc("/headers", headers)
+
+	http.ListenAndServe(":8091", nil)
+
 	// Make sure to wait for all the threads to stop before actually exiting
 	wg.Wait()
 }
@@ -70,3 +79,32 @@ func postGoodbyeMessage(name string) {
 // Other interesting links
 // https://gobyexample.com/command-line-flags
 // https://gobyexample.com/command-line-subcommands
+
+func helloHttpServer(w http.ResponseWriter, req *http.Request) {
+
+	// Create a context to handle the request
+	ctx := req.Context()
+	fmt.Println("helloHttpServer: Hello handler started")
+	defer fmt.Println("helloHttpServer handler ended")
+
+	select {
+	case <-time.After(10 * time.Second):
+		fmt.Fprintf(w, "Hello\n")
+	case <-ctx.Done():
+
+		err := ctx.Err()
+		fmt.Println("helloHttpServer: ", err)
+		internalError := http.StatusInternalServerError
+		http.Error(w, err.Error(), internalError)
+	}
+
+}
+
+func headers(w http.ResponseWriter, req *http.Request) {
+
+	for name, headers := range req.Header {
+		for _, h := range headers {
+			fmt.Fprintf(w, "%v: %v\n", name, h)
+		}
+	}
+}
